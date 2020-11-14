@@ -57,18 +57,14 @@ class TestSQLite3(TestBase):
         self.assertIs(child_span.kind, trace_api.SpanKind.CLIENT)
 
     def test_execute(self):
-        """Should create a child span for execute method
-        """
+        """Should create a child span for execute method"""
         statement = "CREATE TABLE IF NOT EXISTS test (id integer)"
         with self._tracer.start_as_current_span("rootSpan"):
-            self._cursor.execute(
-                statement
-            )
+            self._cursor.execute(statement)
         self.validate_spans(statement)
 
     def test_executemany(self):
-        """Should create a child span for executemany
-        """
+        """Should create a child span for executemany"""
         statement = "INSERT INTO test (id) VALUES (?)"
         with self._tracer.start_as_current_span("rootSpan"):
             data = [("1",), ("2",), ("3",)]
@@ -76,8 +72,7 @@ class TestSQLite3(TestBase):
         self.validate_spans(statement)
 
     def test_callproc(self):
-        """Should create a child span for callproc
-        """
+        """Should create a child span for callproc"""
         with self._tracer.start_as_current_span("rootSpan"), self.assertRaises(
             Exception
         ):

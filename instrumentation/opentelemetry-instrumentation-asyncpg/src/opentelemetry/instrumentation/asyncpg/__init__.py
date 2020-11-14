@@ -60,11 +60,11 @@ def _hydrate_span_from_args(connection, query, parameters) -> dict:
     if user:
         span_attributes["db.user"] = user
 
-    addr = getattr(connection, '_addr', None)
+    addr = getattr(connection, "_addr", None)
     if isinstance(addr, tuple):
         span_attributes["net.peer.name"] = addr[0]
         span_attributes["net.peer.port"] = addr[1]
-    elif isinstance(addr, str): # Connected using unix socket
+    elif isinstance(addr, str):  # Connected using unix socket
         span_attributes["net.peer.name"] = addr
 
     if query is not None:

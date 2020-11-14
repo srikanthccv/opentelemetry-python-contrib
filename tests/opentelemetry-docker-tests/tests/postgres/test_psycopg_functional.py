@@ -70,9 +70,7 @@ class TestFunctionalPsycopg(TestBase):
         self.assertIsNotNone(child_span.parent)
         self.assertIs(child_span.parent, root_span.get_span_context())
         self.assertIs(child_span.kind, trace_api.SpanKind.CLIENT)
-        self.assertEqual(
-            child_span.attributes["db.name"], POSTGRES_DB_NAME
-        )
+        self.assertEqual(child_span.attributes["db.name"], POSTGRES_DB_NAME)
         self.assertEqual(child_span.attributes["net.peer.name"], POSTGRES_HOST)
         self.assertEqual(child_span.attributes["net.peer.port"], POSTGRES_PORT)
 
@@ -80,9 +78,7 @@ class TestFunctionalPsycopg(TestBase):
         """Should create a child span for execute method"""
         stmt = "CREATE TABLE IF NOT EXISTS test (id integer)"
         with self._tracer.start_as_current_span("rootSpan"):
-            self._cursor.execute(
-                stmt
-            )
+            self._cursor.execute(stmt)
         self.validate_spans(stmt)
 
     def test_execute_with_connection_context_manager(self):

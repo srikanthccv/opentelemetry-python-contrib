@@ -89,8 +89,8 @@ class TestRedis(TestBase):
 
         with mock.patch.object(redis_client, "connection"):
             pipe = redis_client.pipeline()
-            pipe.set('key', 'value')
-            pipe.get('bing')
+            pipe.set("key", "value")
+            pipe.get("bing")
             pipe.execute()
 
         spans = self.memory_exporter.get_finished_spans()
