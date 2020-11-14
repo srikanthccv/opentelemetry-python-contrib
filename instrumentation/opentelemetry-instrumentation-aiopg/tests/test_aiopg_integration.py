@@ -219,8 +219,7 @@ class TestAiopgIntegration(TestBase):
         self.assertIs(span.kind, trace_api.SpanKind.CLIENT)
 
         self.assertEqual(span.attributes["component"], "testcomponent")
-        self.assertEqual(span.attributes["db.type"], "testtype")
-        self.assertEqual(span.attributes["db.instance"], "testdatabase")
+        self.assertEqual(span.attributes["db.name"], "testdatabase")
         self.assertEqual(span.attributes["db.statement"], "Test query")
         self.assertEqual(
             span.attributes["db.statement.parameters"],
