@@ -328,8 +328,8 @@ class TracedCursor:
         span.set_attribute(
             "component", self._db_api_integration.database_component
         )
-        span.set_attribute("db.type", self._db_api_integration.database_type)
-        span.set_attribute("db.instance", self._db_api_integration.database)
+        span.set_attribute("db.system", self._db_api_integration.database_component)
+        span.set_attribute("db.name", self._db_api_integration.database)
         span.set_attribute("db.statement", statement)
 
         for (
@@ -347,9 +347,16 @@ class TracedCursor:
         *args: typing.Tuple[typing.Any, typing.Any],
         **kwargs: typing.Dict[typing.Any, typing.Any]
     ):
+        name = ""
+        if args:
+            name = args[0]
+        elif self._db_api_integration.database:
+            name = self._db_api_integration.database
+        else:
+            name = self._db_api_integration.name
 
         with self._db_api_integration.get_tracer().start_as_current_span(
-            self._db_api_integration.name, kind=SpanKind.CLIENT
+            name, kind=SpanKind.CLIENT
         ) as span:
             self._populate_span(span, *args)
             try:

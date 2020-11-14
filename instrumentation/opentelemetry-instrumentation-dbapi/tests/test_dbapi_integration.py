@@ -50,12 +50,11 @@ class TestDBApiIntegration(TestBase):
         spans_list = self.memory_exporter.get_finished_spans()
         self.assertEqual(len(spans_list), 1)
         span = spans_list[0]
-        self.assertEqual(span.name, "testcomponent.testdatabase")
+        self.assertEqual(span.name, "Test query")
         self.assertIs(span.kind, trace_api.SpanKind.CLIENT)
 
         self.assertEqual(span.attributes["component"], "testcomponent")
-        self.assertEqual(span.attributes["db.type"], "testtype")
-        self.assertEqual(span.attributes["db.instance"], "testdatabase")
+        self.assertEqual(span.attributes["db.name"], "testdatabase")
         self.assertEqual(span.attributes["db.statement"], "Test query")
         self.assertFalse("db.statement.parameters" in span.attributes)
         self.assertEqual(span.attributes["db.user"], "testuser")
@@ -93,12 +92,11 @@ class TestDBApiIntegration(TestBase):
         spans_list = self.memory_exporter.get_finished_spans()
         self.assertEqual(len(spans_list), 1)
         span = spans_list[0]
-        self.assertEqual(span.name, "testcomponent.testdatabase")
+        self.assertEqual(span.name, "Test query")
         self.assertIs(span.kind, trace_api.SpanKind.CLIENT)
 
         self.assertEqual(span.attributes["component"], "testcomponent")
-        self.assertEqual(span.attributes["db.type"], "testtype")
-        self.assertEqual(span.attributes["db.instance"], "testdatabase")
+        self.assertEqual(span.attributes["db.name"], "testdatabase")
         self.assertEqual(span.attributes["db.statement"], "Test query")
         self.assertEqual(
             span.attributes["db.statement.parameters"],
