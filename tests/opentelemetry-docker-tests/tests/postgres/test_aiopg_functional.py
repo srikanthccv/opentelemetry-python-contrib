@@ -61,7 +61,7 @@ class TestFunctionalAiopgConnect(TestBase):
             cls._connection.close()
         AiopgInstrumentor().uninstrument()
 
-    def validate_spans(self):
+    def validate_spans(self, span_name):
         spans = self.memory_exporter.get_finished_spans()
         self.assertEqual(len(spans), 2)
         for span in spans:
@@ -74,34 +74,35 @@ class TestFunctionalAiopgConnect(TestBase):
         self.assertIsNotNone(root_span)
         self.assertIsNotNone(child_span)
         self.assertEqual(root_span.name, "rootSpan")
-        self.assertEqual(child_span.name, "postgresql.opentelemetry-tests")
+        self.assertEqual(child_span.name, span_name)
         self.assertIsNotNone(child_span.parent)
         self.assertIs(child_span.parent, root_span.get_span_context())
         self.assertIs(child_span.kind, trace_api.SpanKind.CLIENT)
         self.assertEqual(
-            child_span.attributes["db.instance"], POSTGRES_DB_NAME
+            child_span.attributes["db.name"], POSTGRES_DB_NAME
         )
         self.assertEqual(child_span.attributes["net.peer.name"], POSTGRES_HOST)
         self.assertEqual(child_span.attributes["net.peer.port"], POSTGRES_PORT)
 
     def test_execute(self):
         """Should create a child span for execute method"""
+        stmt = "CREATE TABLE IF NOT EXISTS test (id integer)"
         with self._tracer.start_as_current_span("rootSpan"):
             async_call(
                 self._cursor.execute(
-                    "CREATE TABLE IF NOT EXISTS test (id integer)"
+                    stmt
                 )
             )
-        self.validate_spans()
+        self.validate_spans(stmt)
 
     def test_executemany(self):
         """Should create a child span for executemany"""
+        stmt = "INSERT INTO test (id) VALUES (%s)"
         with pytest.raises(psycopg2.ProgrammingError):
             with self._tracer.start_as_current_span("rootSpan"):
                 data = (("1",), ("2",), ("3",))
-                stmt = "INSERT INTO test (id) VALUES (%s)"
                 async_call(self._cursor.executemany(stmt, data))
-            self.validate_spans()
+            self.validate_spans(stmt)
 
     def test_callproc(self):
         """Should create a child span for callproc"""
@@ -109,7 +110,7 @@ class TestFunctionalAiopgConnect(TestBase):
             Exception
         ):
             async_call(self._cursor.callproc("test", ()))
-            self.validate_spans()
+            self.validate_spans("test")
 
 
 class TestFunctionalAiopgCreatePool(TestBase):
@@ -142,7 +143,7 @@ class TestFunctionalAiopgCreatePool(TestBase):
             cls._pool.close()
         AiopgInstrumentor().uninstrument()
 
-    def validate_spans(self):
+    def validate_spans(self, span_name):
         spans = self.memory_exporter.get_finished_spans()
         self.assertEqual(len(spans), 2)
         for span in spans:
@@ -155,34 +156,35 @@ class TestFunctionalAiopgCreatePool(TestBase):
         self.assertIsNotNone(root_span)
         self.assertIsNotNone(child_span)
         self.assertEqual(root_span.name, "rootSpan")
-        self.assertEqual(child_span.name, "postgresql.opentelemetry-tests")
+        self.assertEqual(child_span.name, span_name)
         self.assertIsNotNone(child_span.parent)
         self.assertIs(child_span.parent, root_span.get_span_context())
         self.assertIs(child_span.kind, trace_api.SpanKind.CLIENT)
         self.assertEqual(
-            child_span.attributes["db.instance"], POSTGRES_DB_NAME
+            child_span.attributes["db.name"], POSTGRES_DB_NAME
         )
         self.assertEqual(child_span.attributes["net.peer.name"], POSTGRES_HOST)
         self.assertEqual(child_span.attributes["net.peer.port"], POSTGRES_PORT)
 
     def test_execute(self):
         """Should create a child span for execute method"""
+        stmt = "CREATE TABLE IF NOT EXISTS test (id integer)"
         with self._tracer.start_as_current_span("rootSpan"):
             async_call(
                 self._cursor.execute(
-                    "CREATE TABLE IF NOT EXISTS test (id integer)"
+                    stmt
                 )
             )
-        self.validate_spans()
+        self.validate_spans(stmt)
 
     def test_executemany(self):
         """Should create a child span for executemany"""
+        stmt = "INSERT INTO test (id) VALUES (%s)"
         with pytest.raises(psycopg2.ProgrammingError):
             with self._tracer.start_as_current_span("rootSpan"):
                 data = (("1",), ("2",), ("3",))
-                stmt = "INSERT INTO test (id) VALUES (%s)"
                 async_call(self._cursor.executemany(stmt, data))
-            self.validate_spans()
+            self.validate_spans(stmt)
 
     def test_callproc(self):
         """Should create a child span for callproc"""
@@ -190,4 +192,4 @@ class TestFunctionalAiopgCreatePool(TestBase):
             Exception
         ):
             async_call(self._cursor.callproc("test", ()))
-            self.validate_spans()
+            self.validate_spans("test")

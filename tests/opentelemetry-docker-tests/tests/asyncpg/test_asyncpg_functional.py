@@ -41,34 +41,36 @@ class TestFunctionalAsyncPG(TestBase):
     def tearDownClass(cls):
         AsyncPGInstrumentor().uninstrument()
 
+    def test_instrumented_connection_level_attrs(self, *_, **__):
+        async_call(self._connection.execute("SELECT 42;"))
+        span = self.memory_exporter.get_finished_spans()[0]
+
+        self.assertIs(StatusCode.UNSET, span.status.status_code)
+        self.assertEqual(span.attributes["db.system"], "postgresql")
+        self.assertEqual(span.attributes["net.peer.name"], POSTGRES_HOST)
+        self.assertEqual(span.attributes["net.peer.port"], POSTGRES_PORT)
+        self.assertEqual(span.attributes["db.user"], POSTGRES_USER)
+        self.assertEqual(span.attributes["db.name"], POSTGRES_DB_NAME)
+        self.assertEqual(span.attributes["db.statement"], "SELECT 42;")
+
     def test_instrumented_execute_method_without_arguments(self, *_, **__):
         async_call(self._connection.execute("SELECT 42;"))
         spans = self.memory_exporter.get_finished_spans()
         self.assertEqual(len(spans), 1)
         self.assertIs(StatusCode.UNSET, spans[0].status.status_code)
-        self.assertEqual(
-            spans[0].attributes,
-            {
-                "db.type": "sql",
-                "db.user": POSTGRES_USER,
-                "db.instance": POSTGRES_DB_NAME,
-                "db.statement": "SELECT 42;",
-            },
-        )
+        self.assertEqual(spans[0].attributes["db.system"], "postgresql")
+        self.assertEqual(spans[0].attributes["db.user"], POSTGRES_USER)
+        self.assertEqual(spans[0].attributes["db.name"], POSTGRES_DB_NAME)
+        self.assertEqual(spans[0].attributes["db.statement"], "SELECT 42;")
 
     def test_instrumented_fetch_method_without_arguments(self, *_, **__):
         async_call(self._connection.fetch("SELECT 42;"))
         spans = self.memory_exporter.get_finished_spans()
         self.assertEqual(len(spans), 1)
-        self.assertEqual(
-            spans[0].attributes,
-            {
-                "db.type": "sql",
-                "db.user": POSTGRES_USER,
-                "db.instance": POSTGRES_DB_NAME,
-                "db.statement": "SELECT 42;",
-            },
-        )
+        self.assertEqual(spans[0].attributes["db.system"], "postgresql")
+        self.assertEqual(spans[0].attributes["db.user"], POSTGRES_USER)
+        self.assertEqual(spans[0].attributes["db.name"], POSTGRES_DB_NAME)
+        self.assertEqual(spans[0].attributes["db.statement"], "SELECT 42;")
 
     def test_instrumented_transaction_method(self, *_, **__):
         async def _transaction_execute():
@@ -79,35 +81,23 @@ class TestFunctionalAsyncPG(TestBase):
 
         spans = self.memory_exporter.get_finished_spans()
         self.assertEqual(3, len(spans))
-        self.assertEqual(
-            {
-                "db.instance": POSTGRES_DB_NAME,
-                "db.user": POSTGRES_USER,
-                "db.type": "sql",
-                "db.statement": "BEGIN;",
-            },
-            spans[0].attributes,
-        )
+        # Transaction - BEGIN
+        self.assertEqual(spans[0].attributes["db.system"], "postgresql")
+        self.assertEqual(spans[0].attributes["db.user"], POSTGRES_USER)
+        self.assertEqual(spans[0].attributes["db.name"], POSTGRES_DB_NAME)
+        self.assertEqual(spans[0].attributes["db.statement"], "BEGIN;")
         self.assertIs(StatusCode.UNSET, spans[0].status.status_code)
-        self.assertEqual(
-            {
-                "db.instance": POSTGRES_DB_NAME,
-                "db.user": POSTGRES_USER,
-                "db.type": "sql",
-                "db.statement": "SELECT 42;",
-            },
-            spans[1].attributes,
-        )
+        # Transaction
+        self.assertEqual(spans[1].attributes["db.system"], "postgresql")
+        self.assertEqual(spans[1].attributes["db.user"], POSTGRES_USER)
+        self.assertEqual(spans[1].attributes["db.name"], POSTGRES_DB_NAME)
+        self.assertEqual(spans[1].attributes["db.statement"], "SELECT 42;")
         self.assertIs(StatusCode.UNSET, spans[1].status.status_code)
-        self.assertEqual(
-            {
-                "db.instance": POSTGRES_DB_NAME,
-                "db.user": POSTGRES_USER,
-                "db.type": "sql",
-                "db.statement": "COMMIT;",
-            },
-            spans[2].attributes,
-        )
+        # Transaction - COMMIT
+        self.assertEqual(spans[2].attributes["db.system"], "postgresql")
+        self.assertEqual(spans[2].attributes["db.user"], POSTGRES_USER)
+        self.assertEqual(spans[2].attributes["db.name"], POSTGRES_DB_NAME)
+        self.assertEqual(spans[2].attributes["db.statement"], "COMMIT;")
         self.assertIs(StatusCode.UNSET, spans[2].status.status_code)
 
     def test_instrumented_failed_transaction_method(self, *_, **__):
@@ -119,38 +109,26 @@ class TestFunctionalAsyncPG(TestBase):
             async_call(_transaction_execute())
 
         spans = self.memory_exporter.get_finished_spans()
+        # Transaction - BEGIN
         self.assertEqual(3, len(spans))
-        self.assertEqual(
-            {
-                "db.instance": POSTGRES_DB_NAME,
-                "db.user": POSTGRES_USER,
-                "db.type": "sql",
-                "db.statement": "BEGIN;",
-            },
-            spans[0].attributes,
-        )
+        self.assertEqual(spans[0].attributes["db.system"], "postgresql")
+        self.assertEqual(spans[0].attributes["db.user"], POSTGRES_USER)
+        self.assertEqual(spans[0].attributes["db.name"], POSTGRES_DB_NAME)
+        self.assertEqual(spans[0].attributes["db.statement"], "BEGIN;")
         self.assertIs(StatusCode.UNSET, spans[0].status.status_code)
-        self.assertEqual(
-            {
-                "db.instance": POSTGRES_DB_NAME,
-                "db.user": POSTGRES_USER,
-                "db.type": "sql",
-                "db.statement": "SELECT 42::uuid;",
-            },
-            spans[1].attributes,
-        )
+        # Transaction
+        self.assertEqual(spans[1].attributes["db.system"], "postgresql")
+        self.assertEqual(spans[1].attributes["db.user"], POSTGRES_USER)
+        self.assertEqual(spans[1].attributes["db.name"], POSTGRES_DB_NAME)
+        self.assertEqual(spans[1].attributes["db.statement"], "SELECT 42::uuid;")
         self.assertEqual(
             StatusCode.ERROR, spans[1].status.status_code,
         )
-        self.assertEqual(
-            {
-                "db.instance": POSTGRES_DB_NAME,
-                "db.user": POSTGRES_USER,
-                "db.type": "sql",
-                "db.statement": "ROLLBACK;",
-            },
-            spans[2].attributes,
-        )
+        # Transaction - ROLLBACK
+        self.assertEqual(spans[2].attributes["db.system"], "postgresql")
+        self.assertEqual(spans[2].attributes["db.user"], POSTGRES_USER)
+        self.assertEqual(spans[2].attributes["db.name"], POSTGRES_DB_NAME)
+        self.assertEqual(spans[2].attributes["db.statement"], "ROLLBACK;")
         self.assertIs(StatusCode.UNSET, spans[2].status.status_code)
 
     def test_instrumented_method_doesnt_capture_parameters(self, *_, **__):
@@ -158,20 +136,10 @@ class TestFunctionalAsyncPG(TestBase):
         spans = self.memory_exporter.get_finished_spans()
         self.assertEqual(len(spans), 1)
         self.assertIs(StatusCode.UNSET, spans[0].status.status_code)
-        self.assertEqual(
-            spans[0].attributes,
-            {
-                "db.type": "sql",
-                "db.user": POSTGRES_USER,
-                # This shouldn't be set because we don't capture parameters by
-                # default
-                #
-                # "db.statement.parameters": "('1',)",
-                "db.instance": POSTGRES_DB_NAME,
-                "db.statement": "SELECT $1;",
-            },
-        )
-
+        self.assertEqual(spans[0].attributes["db.system"], "postgresql")
+        self.assertEqual(spans[0].attributes["db.user"], POSTGRES_USER)
+        self.assertEqual(spans[0].attributes["db.name"], POSTGRES_DB_NAME)
+        self.assertEqual(spans[0].attributes["db.statement"], "SELECT $1;")
 
 class TestFunctionalAsyncPG_CaptureParameters(TestBase):
     @classmethod
@@ -202,59 +170,39 @@ class TestFunctionalAsyncPG_CaptureParameters(TestBase):
         spans = self.memory_exporter.get_finished_spans()
         self.assertEqual(len(spans), 1)
         self.assertIs(StatusCode.UNSET, spans[0].status.status_code)
-        self.assertEqual(
-            spans[0].attributes,
-            {
-                "db.type": "sql",
-                "db.user": POSTGRES_USER,
-                "db.statement.parameters": "('1',)",
-                "db.instance": POSTGRES_DB_NAME,
-                "db.statement": "SELECT $1;",
-            },
-        )
+        self.assertEqual(spans[0].attributes["db.system"], "postgresql")
+        self.assertEqual(spans[0].attributes["db.user"], POSTGRES_USER)
+        self.assertEqual(spans[0].attributes["db.name"], POSTGRES_DB_NAME)
+        self.assertEqual(spans[0].attributes["db.statement"], "SELECT $1;")
+        self.assertEqual(spans[0].attributes["db.statement.parameters"], "('1',)")
+
 
     def test_instrumented_fetch_method_with_arguments(self, *_, **__):
         async_call(self._connection.fetch("SELECT $1;", "1"))
         spans = self.memory_exporter.get_finished_spans()
         self.assertEqual(len(spans), 1)
-        self.assertEqual(
-            spans[0].attributes,
-            {
-                "db.type": "sql",
-                "db.user": POSTGRES_USER,
-                "db.statement.parameters": "('1',)",
-                "db.instance": POSTGRES_DB_NAME,
-                "db.statement": "SELECT $1;",
-            },
-        )
+        self.assertEqual(spans[0].attributes["db.system"], "postgresql")
+        self.assertEqual(spans[0].attributes["db.user"], POSTGRES_USER)
+        self.assertEqual(spans[0].attributes["db.name"], POSTGRES_DB_NAME)
+        self.assertEqual(spans[0].attributes["db.statement"], "SELECT $1;")
+        self.assertEqual(spans[0].attributes["db.statement.parameters"], "('1',)")
 
     def test_instrumented_executemany_method_with_arguments(self, *_, **__):
         async_call(self._connection.executemany("SELECT $1;", [["1"], ["2"]]))
         spans = self.memory_exporter.get_finished_spans()
         self.assertEqual(len(spans), 1)
-        self.assertEqual(
-            {
-                "db.type": "sql",
-                "db.statement": "SELECT $1;",
-                "db.statement.parameters": "([['1'], ['2']],)",
-                "db.user": POSTGRES_USER,
-                "db.instance": POSTGRES_DB_NAME,
-            },
-            spans[0].attributes,
-        )
+        self.assertEqual(spans[0].attributes["db.system"], "postgresql")
+        self.assertEqual(spans[0].attributes["db.user"], POSTGRES_USER)
+        self.assertEqual(spans[0].attributes["db.name"], POSTGRES_DB_NAME)
+        self.assertEqual(spans[0].attributes["db.statement"], "SELECT $1;")
+        self.assertEqual(spans[0].attributes["db.statement.parameters"], "([['1'], ['2']],)")
 
     def test_instrumented_execute_interface_error_method(self, *_, **__):
         with self.assertRaises(asyncpg.InterfaceError):
             async_call(self._connection.execute("SELECT 42;", 1, 2, 3))
         spans = self.memory_exporter.get_finished_spans()
         self.assertEqual(len(spans), 1)
-        self.assertEqual(
-            spans[0].attributes,
-            {
-                "db.type": "sql",
-                "db.instance": POSTGRES_DB_NAME,
-                "db.user": POSTGRES_USER,
-                "db.statement.parameters": "(1, 2, 3)",
-                "db.statement": "SELECT 42;",
-            },
-        )
+        self.assertEqual(spans[0].attributes["db.user"], POSTGRES_USER)
+        self.assertEqual(spans[0].attributes["db.name"], POSTGRES_DB_NAME)
+        self.assertEqual(spans[0].attributes["db.statement"], "SELECT 42;")
+        self.assertEqual(spans[0].attributes["db.statement.parameters"], "(1, 2, 3)")
