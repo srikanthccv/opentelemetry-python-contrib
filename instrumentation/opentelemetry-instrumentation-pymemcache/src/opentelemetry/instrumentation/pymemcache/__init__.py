@@ -62,7 +62,7 @@ _DB = "db.system"
 
 _DEFAULT_SERVICE = "memcached"
 _RAWCMD = "db.statement"
-_CMD = "memcached.command"
+
 COMMANDS = [
     "set",
     "set_many",
@@ -115,7 +115,7 @@ def _with_tracer_wrapper(func):
 @_with_tracer_wrapper
 def _wrap_cmd(tracer, cmd, wrapped, instance, args, kwargs):
     with tracer.start_as_current_span(
-        _CMD, kind=SpanKind.CLIENT, attributes={}
+        cmd, kind=SpanKind.CLIENT, attributes={}
     ) as span:
         try:
             if span.is_recording():

@@ -62,7 +62,8 @@ class PymemcacheClientTestCase(
         self.assertEqual(num_expected, len(spans))
 
         for span, query in zip(spans, queries_expected):
-            self.assertEqual(span.name, "memcached.command")
+            command, *rem = query.split(" ")
+            self.assertEqual(span.name, command)
             self.assertIs(span.kind, trace_api.SpanKind.CLIENT)
             self.assertEqual(
                 span.attributes["net.peer.name"], "{}".format(TEST_HOST)
@@ -514,7 +515,8 @@ class PymemcacheHashClientTestCase(TestBase):
         self.assertEqual(num_expected, len(spans))
 
         for span, query in zip(spans, queries_expected):
-            self.assertEqual(span.name, "memcached.command")
+            command, *rem = query.split(" ")
+            self.assertEqual(span.name, command)
             self.assertIs(span.kind, trace_api.SpanKind.CLIENT)
             self.assertEqual(
                 span.attributes["net.peer.name"], "{}".format(TEST_HOST)
