@@ -31,7 +31,7 @@ class TestRedis(TestBase):
         spans = self.memory_exporter.get_finished_spans()
         self.assertEqual(len(spans), 1)
         span = spans[0]
-        self.assertEqual(span.name, "redis.command")
+        self.assertEqual(span.name, "GET")
         self.assertEqual(span.kind, SpanKind.CLIENT)
 
     def test_not_recording(self):
@@ -82,3 +82,19 @@ class TestRedis(TestBase):
 
         spans = self.memory_exporter.get_finished_spans()
         self.assertEqual(len(spans), 1)
+
+    def test_pipeline(self):
+        redis_client = redis.Redis()
+        RedisInstrumentor().instrument(tracer_provider=self.tracer_provider)
+
+        with mock.patch.object(redis_client, "connection"):
+            pipe = redis_client.pipeline()
+            pipe.set('key', 'value')
+            pipe.get('bing')
+            pipe.execute()
+
+        spans = self.memory_exporter.get_finished_spans()
+        self.assertEqual(len(spans), 1)
+        span = spans[0]
+        self.assertEqual(span.name, "Pipeline SET GET")
+        self.assertEqual(span.kind, SpanKind.CLIENT)
