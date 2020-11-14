@@ -52,8 +52,22 @@ def _hydrate_span_from_args(connection, query, parameters) -> dict:
     span_attributes = {"db.type": "sql"}
 
     params = getattr(connection, "_params", None)
-    span_attributes["db.instance"] = getattr(params, "database", None)
-    span_attributes["db.user"] = getattr(params, "user", None)
+    span_attributes["db.system"] = "postgresql"
+    database = getattr(params, "database", None)
+    if database:
+        span_attributes["db.name"] = database
+    user = getattr(params, "user", None)
+    if user:
+        span_attributes["db.user"] = user
+
+    addr = getattr(connection, '_addr', None)
+    if isinstance(addr, tuple):
+        span_attributes["db.peer.name"] = addr[0]
+        span_attributes["db.peer.port"] = addr[1]
+        span_attributes["net.transport"] = "IP.TCP"
+    elif isinstance(addr, str): # Connected using unix socket
+        span_attributes["net.peer.name"] = addr
+        span_attributes["net.transport"] = "Unix"
 
     if query is not None:
         span_attributes["db.statement"] = query
