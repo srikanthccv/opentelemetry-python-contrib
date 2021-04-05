@@ -118,7 +118,7 @@ def collect_request_attributes(environ):
 
     host_port = environ.get("SERVER_PORT")
     if host_port is not None:
-        result.update({"net.host.port": int(host_port)})
+        result["net.host.port"] = int(host_port)
 
     setifnotnone(result, "http.host", environ.get("HTTP_HOST"))
     target = environ.get("RAW_URI")
@@ -147,6 +147,10 @@ def collect_request_attributes(environ):
     if flavor:
         result["http.flavor"] = flavor
 
+    content_length = environ.get("CONTENT_LENGTH")
+    if content_length:
+        result["http.request_content_length"] = content_length
+
     return result
 
 
@@ -158,6 +162,9 @@ def add_response_attributes(
     if not span.is_recording():
         return
     status_code, _ = start_response_status.split(" ", 1)
+    for header_key, header_val in response_headers:
+        if str(header_key) == 'Content-Length':
+            span.set_attribute("http.response_content_length", int(header_val))
 
     try:
         status_code = int(status_code)
