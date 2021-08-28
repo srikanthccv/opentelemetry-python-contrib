@@ -576,6 +576,7 @@ def test_custom_tracer_provider(celery_app, memory_exporter):
     fn_task.delay()
 
     spans_list = memory_exporter.get_finished_spans()
+    print(spans_list)
     assert len(spans_list) == 1
 
     span = spans_list[0]
