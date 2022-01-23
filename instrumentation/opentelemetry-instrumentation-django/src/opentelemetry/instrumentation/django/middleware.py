@@ -18,13 +18,17 @@ from time import time
 from typing import Callable
 
 from django import VERSION as django_version
+from django.db import connection
 from django.http import HttpRequest, HttpResponse
 
 from opentelemetry.context import attach, detach
 from opentelemetry.instrumentation.propagators import (
     get_global_response_propagator,
 )
-from opentelemetry.instrumentation.utils import extract_attributes_from_object
+from opentelemetry.instrumentation.utils import (
+    _SUPPRESS_INSTRUMENTATION_KEY,
+    extract_attributes_from_object,
+)
 from opentelemetry.instrumentation.wsgi import add_response_attributes
 from opentelemetry.instrumentation.wsgi import (
     collect_request_attributes as wsgi_collect_request_attributes,
@@ -39,6 +43,7 @@ from opentelemetry.trace import (
     get_current_span,
     use_span,
 )
+from opentelemetry.trace.status import Status, StatusCode
 from opentelemetry.util.http import get_excluded_urls, get_traced_request_attrs
 
 try:
@@ -312,3 +317,42 @@ class _DjangoMiddleware(MiddlewareMixin):
             request.META.pop(self._environ_token)
 
         return response
+
+
+class _QueryMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, req):
+        with connection.execute_wrapper(_QueryExecuteWrapper(req)):
+            return self.get_response(req)
+
+
+class _QueryExecuteWrapper:
+
+    _tracer = None
+
+    def __init__(self, req):
+        self.request = req
+
+    def __call__(self, execute, sql, params, many, context):
+
+        if context.get_value(_SUPPRESS_INSTRUMENTATION_KEY):
+            return execute(sql, params, many, context)
+
+        span = self._tracer.start_span(sql, kind=SpanKind.CLIENT)
+        try:
+            result = execute(sql, params, many, context)
+        except Exception as exc:
+            span.set_status(
+                Status(
+                    status_code=StatusCode.ERROR,
+                    description=f"{type(exc).__name__}: {exc}",
+                )
+            )
+            span.record_exception(exc)
+            raise exc
+        else:
+            return result
+        finally:
+            span.end()

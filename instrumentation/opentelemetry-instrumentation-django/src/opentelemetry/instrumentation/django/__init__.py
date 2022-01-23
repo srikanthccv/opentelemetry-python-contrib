@@ -90,7 +90,11 @@ from django.conf import settings
 from opentelemetry.instrumentation.django.environment_variables import (
     OTEL_PYTHON_DJANGO_INSTRUMENT,
 )
-from opentelemetry.instrumentation.django.middleware import _DjangoMiddleware
+from opentelemetry.instrumentation.django.middleware import (
+    _DjangoMiddleware,
+    _QueryExecuteWrapper,
+    _QueryMiddleware,
+)
 from opentelemetry.instrumentation.django.package import _instruments
 from opentelemetry.instrumentation.django.version import __version__
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
@@ -119,6 +123,9 @@ class DjangoInstrumentor(BaseInstrumentor):
     _opentelemetry_middleware = ".".join(
         [_DjangoMiddleware.__module__, _DjangoMiddleware.__qualname__]
     )
+    _query_middleware = ".".join(
+        [_QueryMiddleware.__module__, _QueryMiddleware.__qualname__]
+    )
 
     def instrumentation_dependencies(self) -> Collection[str]:
         return _instruments
@@ -138,6 +145,7 @@ class DjangoInstrumentor(BaseInstrumentor):
         )
 
         _DjangoMiddleware._tracer = tracer
+        _QueryExecuteWrapper._tracer = tracer
 
         _DjangoMiddleware._otel_request_hook = kwargs.pop("request_hook", None)
         _DjangoMiddleware._otel_response_hook = kwargs.pop(
@@ -158,6 +166,7 @@ class DjangoInstrumentor(BaseInstrumentor):
         if isinstance(settings_middleware, tuple):
             settings_middleware = list(settings_middleware)
 
+        settings_middleware.insert(0, self._query_middleware)
         settings_middleware.insert(0, self._opentelemetry_middleware)
         setattr(settings, _middleware_setting, settings_middleware)
 
@@ -176,4 +185,6 @@ class DjangoInstrumentor(BaseInstrumentor):
             return
 
         settings_middleware.remove(self._opentelemetry_middleware)
+        if self._query_middleware in settings_middleware:
+            settings_middleware.remove(self._query_middleware)
         setattr(settings, _middleware_setting, settings_middleware)
