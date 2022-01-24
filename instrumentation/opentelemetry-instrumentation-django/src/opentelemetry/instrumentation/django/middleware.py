@@ -323,22 +323,19 @@ class _QueryMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
-    def __call__(self, req):
-        with connection.execute_wrapper(_QueryExecuteWrapper(req)):
-            return self.get_response(req)
+    def __call__(self, request):
+        with connection.execute_wrapper(_QueryExecuteWrapper(request)):
+            return self.get_response(request)
 
 
 class _QueryExecuteWrapper:
 
     _tracer = None
 
-    def __init__(self, req):
-        self.request = req
+    def __init__(self, request):
+        self.request = request
 
     def __call__(self, execute, sql, params, many, context):
-
-        if context.get_value(_SUPPRESS_INSTRUMENTATION_KEY):
-            return execute(sql, params, many, context)
 
         span = self._tracer.start_span(sql, kind=SpanKind.CLIENT)
         try:
